@@ -1,0 +1,47 @@
+name: sugi-prod-analytic-local
+
+services:
+  postgres:
+    image: postgres:17.10-bookworm
+    container_name: sugi-prod-local-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: production_analytics
+      POSTGRES_USER: assistant_app
+      POSTGRES_PASSWORD: local-preview-password
+      TZ: Asia/Kuala_Lumpur
+      PGTZ: Asia/Kuala_Lumpur
+    volumes:
+      - sugi_prod_local_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U assistant_app -d production_analytics"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "127.0.0.1:55432:5432"
+
+  app:
+    build:
+      context: .
+    image: sugi-prod-analytic:local
+    container_name: sugi-prod-local-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      PUBLIC_ORIGIN: http://localhost:3000
+      DATABASE_URL: postgresql://assistant_app:local-preview-password@postgres:5432/production_analytics
+      LANGFLOW_BASE_URL: http://langflow.invalid:7860
+      LANGFLOW_FLOW_ID: local-preview
+      LANGFLOW_API_KEY: ""
+      LANGFLOW_MOCK: "true"
+      SESSION_TTL_HOURS: "24"
+    ports:
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped
+
+volumes:
+  sugi_prod_local_data:

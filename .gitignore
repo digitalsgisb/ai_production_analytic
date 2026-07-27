@@ -1,0 +1,14 @@
+node_modules/
+.npm-cache/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+coverage/
+backups/
+.DS_Store
+.idea/
+.vscode/
+*.pem
+*.key

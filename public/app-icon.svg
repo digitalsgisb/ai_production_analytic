@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Sugi Prod Analytic</title>
+  <desc id="desc">A professional robot face formed from greater-than, underscore, and less-than symbols.</desc>
+  <defs>
+    <linearGradient id="background" x1="72" y1="56" x2="446" y2="462" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B52837" />
+      <stop offset="0.55" stop-color="#861722" />
+      <stop offset="1" stop-color="#3B080E" />
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(180 126) rotate(54) scale(330)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E95A66" stop-opacity="0.55" />
+      <stop offset="1" stop-color="#E95A66" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="122" fill="#080708" />
+  <rect x="48" y="48" width="416" height="416" rx="112" fill="url(#background)" />
+  <rect x="49" y="49" width="414" height="414" rx="111" fill="url(#glow)" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="2" />
+  <path d="M153 190L218 238L153 286" fill="none" stroke="#FFF7F8" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M359 190L294 238L359 286" fill="none" stroke="#FFF7F8" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M208 330H304" fill="none" stroke="#FFF7F8" stroke-width="28" stroke-linecap="round" />
+</svg>

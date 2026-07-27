@@ -1,0 +1,66 @@
+name: sugi-prod-analytic
+
+services:
+  app:
+    build:
+      context: .
+    image: sugi-prod-analytic:1.0.0
+    container_name: sugi-prod-analytic
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN}
+      DATABASE_URL: ${DATABASE_URL}
+      LANGFLOW_BASE_URL: ${LANGFLOW_BASE_URL}
+      LANGFLOW_FLOW_ID: ${LANGFLOW_FLOW_ID}
+      LANGFLOW_API_KEY: ${LANGFLOW_API_KEY}
+      LANGFLOW_MOCK: "false"
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-24}
+      LANGFLOW_TIMEOUT_MS: ${LANGFLOW_TIMEOUT_MS:-600000}
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - web
+      - production_database
+      - langflow
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.7.2
+    container_name: sugi-prod-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - web
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  web:
+  production_database:
+    external: true
+    name: ${POSTGRES_NETWORK}
+  langflow:
+    external: true
+    name: ${LANGFLOW_NETWORK}
