@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { buildWorkflowStartBody, friendlyStage, mapAgUiEvent, workflowOutputText } from "./langflow.js";
+import { buildWorkflowStartBody, friendlyStage, isRetryableWorkflowStatus, mapAgUiEvent, workflowOutputText } from "./langflow.js";
 
 describe("Langflow version compatibility", () => {
+  it("retries only transient workflow status responses", () => {
+    expect(isRetryableWorkflowStatus(404)).toBe(true);
+    expect(isRetryableWorkflowStatus(429)).toBe(true);
+    expect(isRetryableWorkflowStatus(503)).toBe(true);
+    expect(isRetryableWorkflowStatus(401)).toBe(false);
+    expect(isRetryableWorkflowStatus(403)).toBe(false);
+    expect(isRetryableWorkflowStatus(422)).toBe(false);
+  });
+
   it("uses component-scoped inputs for boolean background APIs", () => {
     expect(buildWorkflowStartBody(
       { langflowFlowId: "flow-id", langflowInputComponentId: "ChatInput-abc" },

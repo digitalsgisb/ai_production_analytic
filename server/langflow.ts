@@ -14,6 +14,10 @@ export interface WorkflowStatus {
   outputs?: Record<string, unknown>;
 }
 
+export function isRetryableWorkflowStatus(status: number) {
+  return [404, 408, 409, 425, 429].includes(status) || status >= 500;
+}
+
 export function workflowOutputText(result: WorkflowStatus) {
   if (typeof result.output?.text === "string") return result.output.text;
   if (!result.outputs || typeof result.outputs !== "object") return undefined;
@@ -129,7 +133,21 @@ class HttpLangflowAdapter implements LangflowAdapter {
       yield { id: lastEventId ? undefined : "0", data: { type: "RUN_STARTED" } };
       const deadline = Date.now() + this.config.langflowTimeoutMs;
       while (!signal?.aborted) {
-        const result = await this.status(jobId);
+        let result: WorkflowStatus;
+        try {
+          result = await this.status(jobId);
+        } catch (error) {
+          if (
+            error instanceof LangflowError &&
+            error.code === "langflow_status_failed" &&
+            isRetryableWorkflowStatus(error.status) &&
+            Date.now() < deadline
+          ) {
+            await delay(1_000, undefined, signal ? { signal } : undefined);
+            continue;
+          }
+          throw error;
+        }
         const status = result.status.toLowerCase();
         if (status === "completed") {
           yield { id: "1", data: { type: "RUN_FINISHED" } };
@@ -161,14 +179,33 @@ class HttpLangflowAdapter implements LangflowAdapter {
   }
 
   async status(jobId: string) {
-    const response = await fetch(
-      `${this.config.langflowBaseUrl}/api/v2/workflows?job_id=${encodeURIComponent(jobId)}`,
-      { headers: this.headers({ accept: "application/json" }), signal: AbortSignal.timeout(30_000) },
-    );
-    if (!response.ok) throw new LangflowError("langflow_status_failed", response.status);
-    const result = (await response.json()) as WorkflowStatus;
-    const text = workflowOutputText(result);
-    return text === undefined ? result : { ...result, output: { text } };
+    const url = `${this.config.langflowBaseUrl}/api/v2/workflows?job_id=${encodeURIComponent(jobId)}`;
+    let lastStatus = 502;
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        const response = await fetch(url, {
+          headers: this.headers({ accept: "application/json" }),
+          signal: AbortSignal.timeout(30_000),
+        });
+        lastStatus = response.status;
+        if (response.ok) {
+          const result = (await response.json()) as WorkflowStatus;
+          const text = workflowOutputText(result);
+          return text === undefined ? result : { ...result, output: { text } };
+        }
+        if (!isRetryableWorkflowStatus(response.status)) {
+          throw new LangflowError("langflow_status_failed", response.status);
+        }
+      } catch (error) {
+        if (error instanceof LangflowError) throw error;
+        lastStatus = 502;
+      }
+
+      if (attempt < 3) await delay(250 * (2 ** attempt));
+    }
+
+    throw new LangflowError("langflow_status_failed", lastStatus);
   }
 
   async cancel(jobId: string) {
