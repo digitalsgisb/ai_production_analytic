@@ -15,8 +15,11 @@ const suggestions = [
   "Which recorded losses affected OEE the most?",
 ];
 
-function RobotMark({ size = "normal" }: { size?: "normal" | "large" }) {
-  return <div className={`robot-mark ${size}`} aria-label="Sugi assistant"><span>&gt;_&lt;</span></div>;
+function RobotMark({ size = "normal", idle = false }: { size?: "normal" | "large"; idle?: boolean }) {
+  return <div className={`robot-mark ${size} ${idle ? "idle-wink" : ""}`} aria-label="Sugi assistant">
+    <span className="face-default">&gt;_&lt;</span>
+    {idle && <span className="face-winking" aria-hidden="true">&gt;_-</span>}
+  </div>;
 }
 
 type Theme = "dark" | "light";
@@ -291,7 +294,7 @@ function ChatApp({ user, onLogout, theme, onToggleTheme }: { user: User; onLogou
       </header>
       <section className={`chat-scroll ${messages.length ? "has-messages" : ""}`}>
         <div className="conversation-stage" key={selectedId ?? "new-conversation"}>
-          {!messages.length ? <div className="empty-state"><RobotMark size="large" /><span className="eyebrow">Production intelligence</span><h1>Good decisions start with<br /><em>trusted production data.</em></h1><p>Ask about output, downtime, rejects, OEE, shifts, and the recorded reasons behind production losses.</p><div className="suggestion-grid">{suggestions.map((s) => <button key={s} onClick={() => void submit(s)}>{s}<Send size={14} /></button>)}</div><small className="trust-note"><Shield size={13} /> Answers are produced through approved read-only tools</small></div>
+          {!messages.length ? <div className="empty-state"><RobotMark size="large" idle /><span className="eyebrow">Production intelligence</span><h1>Good decisions start with<br /><em>trusted production data.</em></h1><p>Ask about output, downtime, rejects, OEE, shifts, and the recorded reasons behind production losses.</p><div className="suggestion-grid">{suggestions.map((s) => <button key={s} onClick={() => void submit(s)}>{s}<Send size={14} /></button>)}</div><small className="trust-note"><Shield size={13} /> Answers are produced through approved read-only tools</small></div>
           : <div className="message-list">{messages.map((message, index) => <div className="message-entry" key={message.id}>
             <MessageView message={message} onRetry={message.role === "assistant" && message.status === "error" && lastUserText ? () => void submit(lastUserText) : undefined} />
             {message.role === "assistant" && message.status === "streaming" && index === messages.length - 1 && <ProgressCard status={status} elapsed={elapsed} trace={trace} />}

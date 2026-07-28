@@ -43,10 +43,22 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .auth-theme { position: fixed; z-index: 4; top: 22px; right: 22px; }
 
 .loading-screen { height: 100vh; display: grid; place-content: center; place-items: center; gap: 20px; background: radial-gradient(circle at 50% 40%, rgba(113,55,66,.26), var(--black) 48%); color: var(--muted); }
-.robot-mark { width: 36px; height: 36px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 11px; border: 1px solid rgba(255,255,255,.14); background: linear-gradient(145deg, #a12835, #74141e); box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 8px 26px rgba(84,15,24,.2); }
+.robot-mark { width: 36px; height: 36px; flex: 0 0 auto; display: grid; place-items: center; position: relative; overflow: hidden; border-radius: 11px; border: 1px solid rgba(255,255,255,.14); background: linear-gradient(145deg, #a12835, #74141e); box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 8px 26px rgba(84,15,24,.2); }
 .robot-mark span { font: 700 10px/1 ui-monospace, monospace; letter-spacing: -1px; color: white; transform: translateY(-1px); }
+.robot-mark .face-winking { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; }
+.robot-mark.idle-wink .face-default { animation: idle-face 5.8s ease-in-out infinite; }
+.robot-mark.idle-wink .face-winking { animation: idle-wink 5.8s ease-in-out infinite; }
 .robot-mark.large { width: 68px; height: 68px; border-radius: 20px; box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 18px 60px rgba(119,13,25,.35); }
 .robot-mark.large span { font-size: 18px; letter-spacing: -2px; }
+
+@keyframes idle-face {
+  0%, 43%, 49%, 100% { opacity: 1; transform: translateY(-1px) scale(1); }
+  45%, 47% { opacity: 0; transform: translateY(-1px) scale(.96); }
+}
+@keyframes idle-wink {
+  0%, 43%, 49%, 100% { opacity: 0; transform: translateY(-1px) scale(.96); }
+  45%, 47% { opacity: 1; transform: translateY(-1px) scale(1); }
+}
 
 .aurora { position: fixed; inset: -30%; pointer-events: none; background: radial-gradient(circle at 26% 28%, rgba(161,40,53,.19), transparent 25%), radial-gradient(circle at 76% 72%, rgba(132,24,34,.12), transparent 27%); filter: blur(30px); animation: drift 18s ease-in-out infinite alternate; }
 .aurora::after, .app-aurora::after { content: ""; position: absolute; inset: 0; opacity: .12; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.3'/%3E%3C/svg%3E"); }
@@ -129,17 +141,18 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .mobile-menu { display: none; }
 
 .chat-scroll { min-height: 0; overflow-y: auto; scrollbar-color: #3f3336 transparent; }
+.chat-scroll:not(.has-messages) { overflow: hidden; }
 .conversation-stage { min-height: 100%; animation: surface-enter .3s cubic-bezier(.2,.8,.2,1) both; }
-.empty-state { min-height: 100%; width: min(850px, calc(100% - 40px)); margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 60px 0 90px; }
-.empty-state .robot-mark { margin-bottom: 22px; }
+.empty-state { height: 100%; min-height: 0; width: min(850px, calc(100% - 40px)); margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: clamp(20px, 4vh, 42px) 0 clamp(16px, 3vh, 30px); }
+.empty-state .robot-mark { margin-bottom: clamp(12px, 2vh, 20px); }
 .eyebrow { color: #ba5a63; font-size: 10px; text-transform: uppercase; letter-spacing: .18em; font-weight: 700; }
-.empty-state h1 { margin: 13px 0 17px; font: 500 clamp(34px, 4.4vw, 57px)/1.08 "Segoe UI Variable", "Segoe UI", sans-serif; letter-spacing: -.05em; }
-.empty-state > p { width: min(580px, 100%); color: var(--muted); line-height: 1.65; margin: 0 0 31px; }
+.empty-state h1 { margin: clamp(8px, 1.5vh, 13px) 0 clamp(10px, 2vh, 17px); font: 500 clamp(34px, min(4.4vw, 6.4vh), 57px)/1.08 "Segoe UI Variable", "Segoe UI", sans-serif; letter-spacing: -.05em; }
+.empty-state > p { width: min(580px, 100%); color: var(--muted); line-height: 1.58; margin: 0 0 clamp(15px, 3vh, 28px); }
 .suggestion-grid { width: min(720px, 100%); display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .suggestion-grid button { min-height: 62px; display: flex; align-items: center; justify-content: space-between; text-align: left; color: #c8c0c2; border: 1px solid var(--line); background: rgba(255,255,255,.025); border-radius: 14px; padding: 15px 17px; cursor: pointer; font-size: 14px; transition: transform .2s, border-color .2s, background .2s; }
 .suggestion-grid button:hover { transform: translateY(-2px); border-color: rgba(187,49,62,.34); background: rgba(117,17,28,.11); }
 .suggestion-grid svg { color: #98404a; flex: 0 0 auto; }
-.trust-note { margin-top: 23px; color: #665f61; display: flex; align-items: center; gap: 6px; }
+.trust-note { margin-top: clamp(12px, 2.5vh, 23px); color: #665f61; display: flex; align-items: center; gap: 6px; }
 
 .message-list { width: min(860px, calc(100% - 48px)); margin: 0 auto; padding: 52px 0 40px; }
 .message-entry { animation: message-enter .28s cubic-bezier(.2,.8,.2,1) both; }
@@ -313,6 +326,17 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 :root[data-theme="light"] .user-card { background: rgba(255,255,255,.54); }
 :root[data-theme="light"] .reset-form input { color: #302b2d; background: #fff; }
 
+@media (max-height: 800px) and (min-width: 761px) {
+  .empty-state { padding: 14px 0 10px; }
+  .empty-state .robot-mark.large { width: 56px; height: 56px; border-radius: 17px; margin-bottom: 10px; }
+  .empty-state .robot-mark.large span { font-size: 15px; }
+  .empty-state h1 { margin: 7px 0 9px; font-size: clamp(34px, 5.6vh, 44px); }
+  .empty-state > p { line-height: 1.45; margin-bottom: 13px; }
+  .suggestion-grid { gap: 8px; }
+  .suggestion-grid button { min-height: 50px; padding: 11px 15px; }
+  .trust-note { margin-top: 10px; }
+}
+
 @media (max-width: 760px) {
   .app-shell, .app-shell.sidebar-closed { grid-template-columns: 1fr; }
   .sidebar, .app-shell.sidebar-closed .sidebar { position: fixed; z-index: 15; inset: 0 auto 0 0; min-width: 278px; transform: translateX(-100%); opacity: 1; pointer-events: auto; transition: transform .25s ease; box-shadow: 30px 0 80px rgba(0,0,0,.65); }
@@ -321,7 +345,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .mobile-menu { display: grid; }
   .sidebar-reopen { display: none; }
   .topbar { padding: 0 12px; }
-  .empty-state { width: calc(100% - 30px); padding-top: 45px; justify-content: flex-start; }
+  .chat-scroll:not(.has-messages) { overflow-y: auto; }
+  .empty-state { width: calc(100% - 30px); height: auto; min-height: 100%; padding: 22px 0 18px; justify-content: center; }
   .empty-state h1 { font-size: 35px; }
   .suggestion-grid { grid-template-columns: 1fr; }
   .message-list, .composer-wrap { width: calc(100% - 28px); }
