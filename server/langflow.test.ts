@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildWorkflowStartBody, friendlyStage, mapAgUiEvent } from "./langflow.js";
+import { buildWorkflowStartBody, friendlyStage, mapAgUiEvent, workflowOutputText } from "./langflow.js";
 
 describe("Langflow version compatibility", () => {
   it("uses component-scoped inputs for boolean background APIs", () => {
@@ -31,6 +31,36 @@ describe("Langflow version compatibility", () => {
       mode: "background",
       stream_protocol: "agui",
     });
+  });
+
+  it("reads current normalized workflow output text", () => {
+    expect(workflowOutputText({
+      status: "completed",
+      output: { text: "Current API answer" },
+    })).toBe("Current API answer");
+  });
+
+  it("reads Langflow 1.10 Chat Output content", () => {
+    expect(workflowOutputText({
+      status: "completed",
+      outputs: {
+        "ChatOutput-YzKSB": {
+          type: "message",
+          component_id: "ChatOutput-YzKSB",
+          status: "completed",
+          content: "Compatibility answer",
+        },
+      },
+    })).toBe("Compatibility answer");
+  });
+
+  it("does not treat non-chat component data as the assistant answer", () => {
+    expect(workflowOutputText({
+      status: "completed",
+      outputs: {
+        "Postgres-tool": { type: "data", content: "sensitive tool output" },
+      },
+    })).toBeUndefined();
   });
 });
 

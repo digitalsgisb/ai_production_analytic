@@ -11,6 +11,23 @@ export interface RawSseFrame {
 export interface WorkflowStatus {
   status: string;
   output?: { text?: string | null };
+  outputs?: Record<string, unknown>;
+}
+
+export function workflowOutputText(result: WorkflowStatus) {
+  if (typeof result.output?.text === "string") return result.output.text;
+  if (!result.outputs || typeof result.outputs !== "object") return undefined;
+
+  for (const [componentId, rawOutput] of Object.entries(result.outputs)) {
+    if (!componentId.toLowerCase().startsWith("chatoutput-")) continue;
+    if (!rawOutput || typeof rawOutput !== "object" || Array.isArray(rawOutput)) continue;
+
+    const output = rawOutput as Record<string, unknown>;
+    if (output.type !== undefined && output.type !== "message") continue;
+    if (typeof output.content === "string") return output.content;
+  }
+
+  return undefined;
 }
 
 export function buildWorkflowStartBody(
@@ -149,7 +166,9 @@ class HttpLangflowAdapter implements LangflowAdapter {
       { headers: this.headers({ accept: "application/json" }), signal: AbortSignal.timeout(30_000) },
     );
     if (!response.ok) throw new LangflowError("langflow_status_failed", response.status);
-    return (await response.json()) as WorkflowStatus;
+    const result = (await response.json()) as WorkflowStatus;
+    const text = workflowOutputText(result);
+    return text === undefined ? result : { ...result, output: { text } };
   }
 
   async cancel(jobId: string) {
