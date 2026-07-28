@@ -317,7 +317,7 @@ export default function App() {
   });
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#111013" : "#f5f1ed");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#111013" : "#f8f1ef");
     window.localStorage.setItem("sugi-theme", theme);
   }, [theme]);
   useEffect(() => { api<{ user: User }>("/api/auth/me").then((r) => { setCsrf(r.user.csrfToken); setUser(r.user); }).catch(() => undefined).finally(() => setLoading(false)); }, []);
