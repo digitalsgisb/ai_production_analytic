@@ -53,7 +53,7 @@ function userJson(auth: NonNullable<AuthenticatedRequest["auth"]>) {
 function safeErrorMessage(code: string) {
   if (code.includes("cancel")) return "The response was cancelled.";
   if (code.includes("timeout")) return "The analysis took too long. Please try again.";
-  return "Sugi Prod Analytic could not complete this request. Please try again.";
+  return "Sugi Bobot could not complete this request. Please try again.";
 }
 
 export function createApp({ config, pool, langflow }: { config: Config; pool: DatabasePool; langflow: LangflowAdapter }) {

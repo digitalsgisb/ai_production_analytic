@@ -16,7 +16,7 @@ const suggestions = [
 ];
 
 function RobotMark({ size = "normal", idle = false }: { size?: "normal" | "large"; idle?: boolean }) {
-  return <div className={`robot-mark ${size} ${idle ? "idle-wink" : ""}`} aria-label="Sugi assistant">
+  return <div className={`robot-mark ${size} ${idle ? "idle-wink" : ""}`} aria-label="Sugi Bobot assistant">
     <span className="face-default">&gt;_&lt;</span>
     {idle && <span className="face-winking" aria-hidden="true">&gt;_-</span>}
   </div>;
@@ -118,7 +118,7 @@ const MessageView = memo(function MessageView({ message, onRetry }: { message: M
   return <article className={`message assistant-message ${message.status}`}>
     <div className="assistant-avatar"><RobotMark /></div>
     <div className="message-body">
-      <div className="message-author">Sugi Prod Analytic <span>AI</span></div>
+      <div className="message-author">Sugi Bobot <span>AI</span></div>
       {message.content ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown> : <span className="stream-caret" />}
       {message.status !== "streaming" && <div className="message-actions">
         <button onClick={copy} aria-label="Copy response">{copied ? <Check size={14} /> : <Clipboard size={14} />} {copied ? "Copied" : "Copy"}</button>
@@ -289,12 +289,12 @@ function ChatApp({ user, onLogout, theme, onToggleTheme }: { user: User; onLogou
     </aside>
     <main className="chat-main">
       <header className="topbar">
-        <div><button className="icon-button mobile-menu" onClick={() => setMobileSidebar(true)} aria-label="Open conversation history"><Menu /></button>{!sidebar && <button className="icon-button sidebar-reopen" onClick={() => setSidebar(true)} aria-label="Open conversation history" title="Open history"><Menu /></button>}<RobotMark /><div className="topbar-title"><strong>Sugi Prod Analytic</strong><span><i /> Secure connection</span></div></div>
+        <div><button className="icon-button mobile-menu" onClick={() => setMobileSidebar(true)} aria-label="Open conversation history"><Menu /></button>{!sidebar && <button className="icon-button sidebar-reopen" onClick={() => setSidebar(true)} aria-label="Open conversation history" title="Open history"><Menu /></button>}<RobotMark /><div className="topbar-title"><strong>Sugi Bobot</strong><span><i /> Secure connection</span></div></div>
         <ThemeToggle theme={theme} onToggle={onToggleTheme} compact />
       </header>
       <section className={`chat-scroll ${messages.length ? "has-messages" : ""}`}>
         <div className="conversation-stage" key={selectedId ?? "new-conversation"}>
-          {!messages.length ? <div className="empty-state"><RobotMark size="large" idle /><span className="eyebrow">Production intelligence</span><h1>Good decisions start with<br /><em>trusted production data.</em></h1><p>Ask about output, downtime, rejects, OEE, shifts, and the recorded reasons behind production losses.</p><div className="suggestion-grid">{suggestions.map((s) => <button key={s} onClick={() => void submit(s)}>{s}<Send size={14} /></button>)}</div><small className="trust-note"><Shield size={13} /> Answers are produced through approved read-only tools</small></div>
+          {!messages.length ? <div className="empty-state"><RobotMark size="large" idle /><span className="eyebrow">Sugi Bobot · Production intelligence</span><h1>Good decisions start with<br /><em>trusted production data.</em></h1><p>Ask about output, downtime, rejects, OEE, shifts, and the recorded reasons behind production losses.</p><div className="suggestion-grid">{suggestions.map((s) => <button key={s} onClick={() => void submit(s)}>{s}<Send size={14} /></button>)}</div><small className="trust-note"><Shield size={13} /> Answers are produced through approved read-only tools</small></div>
           : <div className="message-list">{messages.map((message, index) => <div className="message-entry" key={message.id}>
             <MessageView message={message} onRetry={message.role === "assistant" && message.status === "error" && lastUserText ? () => void submit(lastUserText) : undefined} />
             {message.role === "assistant" && message.status === "streaming" && index === messages.length - 1 && <ProgressCard status={status} elapsed={elapsed} trace={trace} />}
