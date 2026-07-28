@@ -1,7 +1,7 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import {
   Bot, Check, ChevronDown, Clipboard, Edit3, LogOut, Menu, MessageSquarePlus,
-  MoreHorizontal, PanelLeftClose, RefreshCcw, Send, Shield, Square, Trash2, UserRoundPlus, X,
+  Moon, PanelLeftClose, RefreshCcw, Send, Shield, Square, Sun, Trash2, UserRoundPlus, X,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -19,7 +19,18 @@ function RobotMark({ size = "normal" }: { size?: "normal" | "large" }) {
   return <div className={`robot-mark ${size}`} aria-label="Sugi assistant"><span>&gt;_&lt;</span></div>;
 }
 
-function Login({ onLogin }: { onLogin: (user: User) => void }) {
+type Theme = "dark" | "light";
+
+function ThemeToggle({ theme, onToggle, compact = false }: { theme: Theme; onToggle: () => void; compact?: boolean }) {
+  const nextTheme = theme === "dark" ? "light" : "dark";
+  return <button type="button" className={`theme-toggle ${compact ? "compact" : ""}`} onClick={onToggle}
+    aria-label={`Switch to ${nextTheme} mode`} title={`Switch to ${nextTheme} mode`}>
+    {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+    {!compact && <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>}
+  </button>;
+}
+
+function Login({ onLogin, theme, onToggleTheme }: { onLogin: (user: User) => void; theme: Theme; onToggleTheme: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -34,6 +45,7 @@ function Login({ onLogin }: { onLogin: (user: User) => void }) {
   }
   return (
     <main className="auth-shell">
+      <div className="auth-theme"><ThemeToggle theme={theme} onToggle={onToggleTheme} /></div>
       <div className="aurora" />
       <section className="auth-card">
         <div className="auth-brand"><RobotMark size="large" /><span>Secure production intelligence</span></div>
@@ -52,7 +64,7 @@ function Login({ onLogin }: { onLogin: (user: User) => void }) {
   );
 }
 
-function ChangePassword({ onDone }: { onDone: (user: User) => void }) {
+function ChangePassword({ onDone, theme, onToggleTheme }: { onDone: (user: User) => void; theme: Theme; onToggleTheme: () => void }) {
   const [currentPassword, setCurrent] = useState("");
   const [newPassword, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -66,7 +78,7 @@ function ChangePassword({ onDone }: { onDone: (user: User) => void }) {
     } catch { setError("Check your current password and use at least 12 characters."); }
   }
   return (
-    <main className="auth-shell"><div className="aurora" /><section className="auth-card compact">
+    <main className="auth-shell"><div className="auth-theme"><ThemeToggle theme={theme} onToggle={onToggleTheme} /></div><div className="aurora" /><section className="auth-card compact">
       <div className="auth-brand"><Shield /><span>First sign-in</span></div>
       <h1>Create a private password</h1><p>Your temporary password must be replaced before you can access production analysis.</p>
       <form onSubmit={submit}>
@@ -146,7 +158,7 @@ function AdminPanel({ onClose }: { onClose: () => void }) {
   </section></div>;
 }
 
-function ChatApp({ user, onLogout }: { user: User; onLogout: () => void }) {
+function ChatApp({ user, onLogout, theme, onToggleTheme }: { user: User; onLogout: () => void; theme: Theme; onToggleTheme: () => void }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -275,7 +287,7 @@ function ChatApp({ user, onLogout }: { user: User; onLogout: () => void }) {
     <main className="chat-main">
       <header className="topbar">
         <div><button className="icon-button mobile-menu" onClick={() => setMobileSidebar(true)} aria-label="Open conversation history"><Menu /></button>{!sidebar && <button className="icon-button sidebar-reopen" onClick={() => setSidebar(true)} aria-label="Open conversation history" title="Open history"><Menu /></button>}<RobotMark /><div className="topbar-title"><strong>Sugi Prod Analytic</strong><span><i /> Secure connection</span></div></div>
-        <button className="icon-button" aria-label="More options"><MoreHorizontal /></button>
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} compact />
       </header>
       <section className={`chat-scroll ${messages.length ? "has-messages" : ""}`}>
         <div className="conversation-stage" key={selectedId ?? "new-conversation"}>
@@ -298,9 +310,20 @@ function ChatApp({ user, onLogout }: { user: User; onLogout: () => void }) {
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [theme, setTheme] = useState<Theme>(() => {
+    const saved = window.localStorage.getItem("sugi-theme");
+    if (saved === "light" || saved === "dark") return saved;
+    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  });
+  useLayoutEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#111013" : "#f5f1ed");
+    window.localStorage.setItem("sugi-theme", theme);
+  }, [theme]);
   useEffect(() => { api<{ user: User }>("/api/auth/me").then((r) => { setCsrf(r.user.csrfToken); setUser(r.user); }).catch(() => undefined).finally(() => setLoading(false)); }, []);
   if (loading) return <div className="loading-screen"><RobotMark size="large" /><span>Loading Sugi Prod Analytic…</span></div>;
-  if (!user) return <Login onLogin={setUser} />;
-  if (user.mustChangePassword) return <ChangePassword onDone={setUser} />;
-  return <ChatApp user={user} onLogout={() => { setCsrf(""); setUser(null); }} />;
+  const toggleTheme = () => setTheme((current) => current === "dark" ? "light" : "dark");
+  if (!user) return <Login onLogin={setUser} theme={theme} onToggleTheme={toggleTheme} />;
+  if (user.mustChangePassword) return <ChangePassword onDone={setUser} theme={theme} onToggleTheme={toggleTheme} />;
+  return <ChatApp user={user} onLogout={() => { setCsrf(""); setUser(null); }} theme={theme} onToggleTheme={toggleTheme} />;
 }
