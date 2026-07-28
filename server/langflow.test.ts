@@ -1,6 +1,38 @@
 import { describe, expect, it } from "vitest";
 
-import { friendlyStage, mapAgUiEvent } from "./langflow.js";
+import { buildWorkflowStartBody, friendlyStage, mapAgUiEvent } from "./langflow.js";
+
+describe("Langflow version compatibility", () => {
+  it("uses component-scoped inputs for boolean background APIs", () => {
+    expect(buildWorkflowStartBody(
+      { langflowFlowId: "flow-id", langflowInputComponentId: "ChatInput-abc" },
+      "conversation-id",
+      "hello",
+    )).toEqual({
+      flow_id: "flow-id",
+      background: true,
+      stream: false,
+      inputs: {
+        "ChatInput-abc.input_value": "hello",
+        "ChatInput-abc.session_id": "conversation-id",
+      },
+    });
+  });
+
+  it("retains AG-UI background mode when no compatibility component is configured", () => {
+    expect(buildWorkflowStartBody(
+      { langflowFlowId: "flow-id", langflowInputComponentId: "" },
+      "conversation-id",
+      "hello",
+    )).toEqual({
+      flow_id: "flow-id",
+      input_value: "hello",
+      session_id: "conversation-id",
+      mode: "background",
+      stream_protocol: "agui",
+    });
+  });
+});
 
 describe("Langflow event sanitization", () => {
   it("maps production tools to a friendly stage", () => {

@@ -158,6 +158,7 @@ nano .env
 | `POSTGRES_NETWORK` | Exact external Docker network containing PostgreSQL |
 | `LANGFLOW_BASE_URL` | Private URL such as `http://langflow:7860`—never the public address |
 | `LANGFLOW_FLOW_ID` | Flow ID or endpoint name from Langflow API Access |
+| `LANGFLOW_INPUT_COMPONENT_ID` | Chat Input component ID, such as `ChatInput-ZKCte`; enables compatibility mode for component-scoped v2 inputs |
 | `LANGFLOW_API_KEY` | Langflow key created for this app; store only in Atom `.env` |
 | `LANGFLOW_NETWORK` | Exact external Docker network containing Langflow |
 
@@ -176,6 +177,7 @@ Important distinctions:
 - `PRODUCTION_POSTGRES_CONTAINER` is used by `docker exec` during provisioning and backups.
 - The hostname inside `DATABASE_URL` must resolve on `POSTGRES_NETWORK`; it may be different from the container name.
 - `LANGFLOW_BASE_URL` must use the hostname or alias visible on `LANGFLOW_NETWORK`.
+- When `LANGFLOW_INPUT_COMPONENT_ID` is set, the gateway uses component-scoped `inputs` and polls the durable background job. This preserves refresh recovery and cancellation on Langflow builds that do not expose the buffered `/events` endpoint, but those builds show truthful generic progress instead of token streaming.
 - Use the same generated password in `ASSISTANT_DB_PASSWORD` and `DATABASE_URL`.
 - Never commit `.env`, the Langflow key, tunnel token, database password, or a real flow export containing credentials.
 

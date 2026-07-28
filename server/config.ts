@@ -13,6 +13,7 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1),
   LANGFLOW_BASE_URL: z.string().url().default("http://langflow:7860"),
   LANGFLOW_FLOW_ID: z.string().min(1).default("mock-flow"),
+  LANGFLOW_INPUT_COMPONENT_ID: z.string().trim().default(""),
   LANGFLOW_API_KEY: z.string().default(""),
   LANGFLOW_MOCK: z
     .string()
@@ -37,6 +38,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     databaseUrl: config.DATABASE_URL,
     langflowBaseUrl: config.LANGFLOW_BASE_URL.replace(/\/$/, ""),
     langflowFlowId: config.LANGFLOW_FLOW_ID,
+    langflowInputComponentId: config.LANGFLOW_INPUT_COMPONENT_ID,
     langflowApiKey: config.LANGFLOW_API_KEY,
     langflowMock: config.LANGFLOW_MOCK,
     sessionTtlHours: config.SESSION_TTL_HOURS,

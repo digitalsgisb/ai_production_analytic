@@ -13,6 +13,32 @@ export interface WorkflowStatus {
   output?: { text?: string | null };
 }
 
+export function buildWorkflowStartBody(
+  config: Pick<Config, "langflowFlowId" | "langflowInputComponentId">,
+  sessionId: string,
+  input: string,
+) {
+  if (config.langflowInputComponentId) {
+    const component = config.langflowInputComponentId;
+    return {
+      flow_id: config.langflowFlowId,
+      background: true,
+      stream: false,
+      inputs: {
+        [`${component}.input_value`]: input,
+        [`${component}.session_id`]: sessionId,
+      },
+    };
+  }
+  return {
+    flow_id: config.langflowFlowId,
+    input_value: input,
+    session_id: sessionId,
+    mode: "background",
+    stream_protocol: "agui",
+  };
+}
+
 export interface LangflowAdapter {
   start(sessionId: string, input: string): Promise<{ jobId: string }>;
   events(jobId: string, lastEventId?: string | null, signal?: AbortSignal): AsyncGenerator<RawSseFrame>;
@@ -72,13 +98,7 @@ class HttpLangflowAdapter implements LangflowAdapter {
     const response = await fetch(`${this.config.langflowBaseUrl}/api/v2/workflows`, {
       method: "POST",
       headers: this.headers(),
-      body: JSON.stringify({
-        flow_id: this.config.langflowFlowId,
-        input_value: input,
-        session_id: sessionId,
-        mode: "background",
-        stream_protocol: "agui",
-      }),
+      body: JSON.stringify(buildWorkflowStartBody(this.config, sessionId, input)),
       signal: AbortSignal.timeout(60_000),
     });
     if (!response.ok) throw new LangflowError("langflow_start_failed", response.status);
@@ -88,6 +108,28 @@ class HttpLangflowAdapter implements LangflowAdapter {
   }
 
   async *events(jobId: string, lastEventId?: string | null, signal?: AbortSignal) {
+    if (this.config.langflowInputComponentId) {
+      yield { id: lastEventId ? undefined : "0", data: { type: "RUN_STARTED" } };
+      const deadline = Date.now() + this.config.langflowTimeoutMs;
+      while (!signal?.aborted) {
+        const result = await this.status(jobId);
+        const status = result.status.toLowerCase();
+        if (status === "completed") {
+          yield { id: "1", data: { type: "RUN_FINISHED" } };
+          return;
+        }
+        if (status === "cancelled") {
+          yield { id: "1", data: { type: "CUSTOM", name: "langflow.run.cancelled" } };
+          return;
+        }
+        if (["failed", "timed_out", "timeout", "error"].includes(status) || Date.now() >= deadline) {
+          yield { id: "1", data: { type: "RUN_ERROR" } };
+          return;
+        }
+        await delay(1_000, undefined, signal ? { signal } : undefined);
+      }
+      return;
+    }
     const headers: Record<string, string> = {
       "x-api-key": this.config.langflowApiKey,
       accept: "text/event-stream",
