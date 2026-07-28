@@ -10,7 +10,7 @@ Secure React chat frontend and Node gateway for Sugihara Grand Industries' produ
 - Persistent, per-user PostgreSQL conversations and administrative audit records.
 - Langflow v2 background execution with AG-UI events, resumable SSE, streamed answers, sanitized progress steps, and cancellation.
 - A local Langflow simulator for frontend testing on a Windows PC.
-- Hardened Docker image, private Compose networks, Cloudflare Tunnel, health checks, log rotation, backups, and GitHub Actions validation.
+- Hardened Docker image, private data networks, loopback-only tunnel access, health checks, log rotation, backups, and GitHub Actions validation.
 
 The browser never receives the Langflow URL or API key. The application does not expose prompts, SQL, tool arguments, tool results, credentials, or raw database payloads in its progress display or normal logs.
 
@@ -77,7 +77,7 @@ GitHub Actions repeats these checks and builds the Docker image on pushes and pu
 
 ## Deploy on the GIGABYTE AI TOP ATOM
 
-The production stack is designed to live at `/srv/apps/sugi-prod-analytic`. It publishes no host port. The app connects privately to the existing PostgreSQL and Langflow Docker networks, while `cloudflared` reaches only the app through a separate web network.
+The production stack is designed to live at `/srv/apps/sugi-prod-analytic`. The app connects privately to the existing PostgreSQL and Langflow Docker networks. Its HTTP port is published only on Atom loopback as `127.0.0.1:3000`, allowing the Atom's existing `cloudflared` system service to reach it without exposing the port to the LAN or internet.
 
 ### 1. Atom prerequisites
 
@@ -88,7 +88,7 @@ Install or confirm:
 - An existing PostgreSQL container and database.
 - An existing Langflow container and working flow.
 - A company hostname managed in Cloudflare.
-- A remotely managed Cloudflare Tunnel.
+- The existing remotely managed `AI Supercomputer` Cloudflare Tunnel running as an Atom system service.
 
 Confirm Docker is healthy:
 
@@ -160,7 +160,6 @@ nano .env
 | `LANGFLOW_FLOW_ID` | Flow ID or endpoint name from Langflow API Access |
 | `LANGFLOW_API_KEY` | Langflow key created for this app; store only in Atom `.env` |
 | `LANGFLOW_NETWORK` | Exact external Docker network containing Langflow |
-| `TUNNEL_TOKEN` | Token for the remotely managed Cloudflare Tunnel |
 
 Keep these production defaults:
 
@@ -189,22 +188,23 @@ chmod 750 scripts/*.sh
 
 This creates or updates only the `assistant_app` role and `assistant` schema. It does not grant write access to production tables used by the Langflow analysis flow.
 
-### 6. Configure Cloudflare Tunnel
+### 6. Configure the existing Cloudflare Tunnel
 
-In the Cloudflare dashboard:
+The Atom already runs the `AI Supercomputer` tunnel as `cloudflared.service`; this application does not run a second tunnel container and does not need a tunnel token in its `.env`.
 
-1. Create or select a remotely managed tunnel.
-2. Add the chosen public hostname.
-3. Set its HTTP service to `http://app:3000`.
-4. Copy the tunnel token into Atom `.env` as `TUNNEL_TOKEN`.
+In the Cloudflare dashboard, open that tunnel and add or edit its published application route:
 
-The tunnel token is a secret. Anyone with it can run the tunnel. No router port-forwarding is required.
+1. Set the hostname to `prod-analytic.sugidigital.org`.
+2. Set the service type to `HTTP`.
+3. Set the service URL to `http://localhost:3000`.
+4. Leave the path empty and save the route.
+
+No router port-forwarding is required. Confirm the existing connector with `systemctl is-active cloudflared`.
 
 ### 7. Build and start
 
 ```bash
 docker compose config --quiet
-docker compose pull cloudflared
 docker compose build --pull app
 docker compose up -d
 docker compose ps
@@ -216,11 +216,11 @@ Create the first administrator interactively:
 docker compose exec app node dist/server/cli/create-admin.js
 ```
 
-Verify readiness without exposing a host port:
+Verify readiness:
 
 ```bash
 docker compose exec app node -e "fetch('http://127.0.0.1:3000/health/ready').then(async r => { console.log(r.status, await r.text()); process.exit(r.ok ? 0 : 1) })"
-docker compose logs --tail=50 app cloudflared
+docker compose logs --tail=50 app
 ```
 
 Then open `PUBLIC_ORIGIN`, sign in, change the temporary administrator password, and run one real production question. Compare its final answer with the same question in Langflow Playground.
@@ -261,14 +261,14 @@ The default local retention is 14 days. Schedule the command daily with cron or 
 | PostgreSQL `ENOTFOUND` or connection refused | Correct the hostname in `DATABASE_URL` and confirm the app is attached to the PostgreSQL network |
 | Langflow `ENOTFOUND` or timeout | Correct `LANGFLOW_BASE_URL` and confirm both containers share `LANGFLOW_NETWORK` |
 | Langflow returns `401` or `403` | Check the Atom-only API key and `LANGFLOW_DEVELOPER_API_ENABLED=true` |
-| Cloudflare shows `502` | Confirm the dashboard service is `http://app:3000` and both Compose services are on the `web` network |
+| Cloudflare shows `502` | Confirm the dashboard service is `http://localhost:3000`, `cloudflared.service` is active, and `curl http://127.0.0.1:3000/health/ready` succeeds on the Atom |
 | Login is unavailable | Run the interactive `admin:create` command and check the app readiness health check |
 
 ## Security notes
 
 - Public registration is disabled.
 - Secure session cookies require the correct HTTPS `PUBLIC_ORIGIN`.
-- PostgreSQL, Langflow, and the app have no public host ports in production Compose.
+- PostgreSQL and Langflow have no public host ports. The app is bound only to `127.0.0.1:3000` for the existing host-level Cloudflare Tunnel.
 - Questions, answers, credentials, raw Langflow events, SQL, and tool payloads are not logged by default.
 - Conversations remain until their owner deletes them.
 
