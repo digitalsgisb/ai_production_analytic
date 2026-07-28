@@ -8,7 +8,7 @@ Secure React chat frontend and Node gateway for Sugihara Grand Industries' produ
 - Installable PWA with a branded `>_<` app icon and offline application shell.
 - Named local accounts, forced first-password changes, administrator user management, and Argon2id password hashing.
 - Persistent, per-user PostgreSQL conversations and administrative audit records.
-- Langflow v2 background execution with AG-UI events, resumable SSE, streamed answers, sanitized progress steps, and cancellation.
+- Langflow v2 background execution, plus an opt-in Langflow 1.10 live stream for token output and sanitized component/tool progress.
 - A local Langflow simulator for frontend testing on a Windows PC.
 - Hardened Docker image, private data networks, loopback-only tunnel access, health checks, log rotation, backups, and GitHub Actions validation.
 
@@ -160,6 +160,7 @@ nano .env
 | `LANGFLOW_FLOW_ID` | Flow ID or endpoint name from Langflow API Access |
 | `LANGFLOW_INPUT_COMPONENT_ID` | Chat Input component ID, such as `ChatInput-ZKCte`; enables compatibility mode for component-scoped v2 inputs |
 | `LANGFLOW_API_KEY` | Langflow key created for this app; store only in Atom `.env` |
+| `LANGFLOW_LIVE_PROGRESS` | Set to `true` on Langflow 1.10 to stream real component, agent, tool, and token events through the gateway |
 | `LANGFLOW_NETWORK` | Exact external Docker network containing Langflow |
 
 Keep these production defaults:
@@ -168,6 +169,7 @@ Keep these production defaults:
 NODE_ENV=production
 PORT=3000
 LANGFLOW_MOCK=false
+LANGFLOW_LIVE_PROGRESS=true
 SESSION_TTL_HOURS=24
 LANGFLOW_TIMEOUT_MS=600000
 ```
@@ -177,7 +179,9 @@ Important distinctions:
 - `PRODUCTION_POSTGRES_CONTAINER` is used by `docker exec` during provisioning and backups.
 - The hostname inside `DATABASE_URL` must resolve on `POSTGRES_NETWORK`; it may be different from the container name.
 - `LANGFLOW_BASE_URL` must use the hostname or alias visible on `LANGFLOW_NETWORK`.
-- When `LANGFLOW_INPUT_COMPONENT_ID` is set, the gateway uses component-scoped `inputs` and polls the durable background job. This preserves refresh recovery and cancellation on Langflow builds that do not expose the buffered `/events` endpoint, but those builds show truthful generic progress instead of token streaming.
+- With `LANGFLOW_LIVE_PROGRESS=true`, the gateway uses Langflow 1.10's authenticated `/api/v1/run/...?...stream=true` EventManager stream. The browser sees only sanitized component names, tool names, states, timings, and answer tokens; SQL, tool inputs/results, prompts, and raw events never leave the gateway.
+- Live events are buffered by the gateway so a browser refresh can reattach while the app container remains running. An app-container restart interrupts an active Langflow 1.10 live-stream run; completed conversation history remains persistent.
+- Set `LANGFLOW_LIVE_PROGRESS=false` to fall back to the durable v2 background job. That mode preserves Langflow-side recovery but shows only truthful generic progress on Langflow 1.10 because that version's v2 endpoint does not emit live component events.
 - Use the same generated password in `ASSISTANT_DB_PASSWORD` and `DATABASE_URL`.
 - Never commit `.env`, the Langflow key, tunnel token, database password, or a real flow export containing credentials.
 

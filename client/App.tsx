@@ -98,7 +98,7 @@ function ChangePassword({ onDone, theme, onToggleTheme }: { onDone: (user: User)
 type TraceStep = { label: string; state: "running" | "complete" | "error"; durationMs?: number };
 
 function ProgressCard({ status, elapsed, trace }: { status: string; elapsed: number; trace: TraceStep[] }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   return <div className="progress-card">
     <button className="progress-summary" onClick={() => setOpen(!open)} aria-expanded={open}>
       <span className="pulse-dot" /><span className="progress-copy"><strong className="status-transition" key={status}>{status}</strong><small>{elapsed}s elapsed · live workflow</small></span>

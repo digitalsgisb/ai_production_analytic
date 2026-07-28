@@ -15,6 +15,10 @@ const schema = z.object({
   LANGFLOW_FLOW_ID: z.string().min(1).default("mock-flow"),
   LANGFLOW_INPUT_COMPONENT_ID: z.string().trim().default(""),
   LANGFLOW_API_KEY: z.string().default(""),
+  LANGFLOW_LIVE_PROGRESS: z
+    .string()
+    .default("false")
+    .transform((value) => value.toLowerCase() === "true"),
   LANGFLOW_MOCK: z
     .string()
     .default("false")
@@ -40,6 +44,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     langflowFlowId: config.LANGFLOW_FLOW_ID,
     langflowInputComponentId: config.LANGFLOW_INPUT_COMPONENT_ID,
     langflowApiKey: config.LANGFLOW_API_KEY,
+    langflowLiveProgress: config.LANGFLOW_LIVE_PROGRESS,
     langflowMock: config.LANGFLOW_MOCK,
     sessionTtlHours: config.SESSION_TTL_HOURS,
     langflowTimeoutMs: config.LANGFLOW_TIMEOUT_MS,
