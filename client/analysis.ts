@@ -7,18 +7,18 @@ const kpiSchema = z.object({
   value: metricValueSchema,
   unit: z.string().max(20).optional(),
   status: z.enum(["neutral", "positive", "warning", "critical"]).default("neutral"),
-}).strict();
+});
 
 const seriesSchema = z.object({
   key: z.string().regex(/^[a-z][a-z0-9_]{0,31}$/i),
   label: z.string().min(1).max(50),
-}).strict();
+});
 
 const chartPointSchema = z.object({
   label: z.string().min(1).max(80),
   values: z.record(z.string(), z.number().finite().nullable()),
   anomaly: z.boolean().optional(),
-}).strict();
+});
 
 const chartSchema = z.object({
   type: z.enum(["line", "bar"]),
@@ -27,7 +27,7 @@ const chartSchema = z.object({
   yLabel: z.string().max(30).optional(),
   series: z.array(seriesSchema).min(1).max(4),
   data: z.array(chartPointSchema).min(1).max(60),
-}).strict().superRefine((chart, context) => {
+}).superRefine((chart, context) => {
   const keys = new Set(chart.series.map((series) => series.key));
   if (keys.size !== chart.series.length) {
     context.addIssue({ code: "custom", message: "Chart series keys must be unique" });
@@ -45,7 +45,7 @@ const anomalySchema = z.object({
   severity: z.enum(["info", "warning", "critical"]),
   title: z.string().min(1).max(100),
   detail: z.string().min(1).max(280),
-}).strict();
+});
 
 export const analyticsPayloadSchema = z.object({
   version: z.literal(1),
@@ -53,36 +53,56 @@ export const analyticsPayloadSchema = z.object({
     label: z.string().min(1).max(60),
     start: z.string().date(),
     end: z.string().date(),
-  }).strict().optional(),
+  }).optional(),
   kpis: z.array(kpiSchema).max(6).default([]),
   charts: z.array(chartSchema).max(3).default([]),
   anomalies: z.array(anomalySchema).max(8).default([]),
   notes: z.array(z.string().min(1).max(240)).max(6).default([]),
-}).strict();
+});
 
 export type AnalyticsPayload = z.infer<typeof analyticsPayloadSchema>;
 export type AnalyticsChart = AnalyticsPayload["charts"][number];
 
-const blockStart = /^```sugi-analytics[ \t]*\r?$/im;
+export type ParsedAnalyticsMessage = {
+  markdown: string;
+  analytics?: AnalyticsPayload;
+  analyticsIssue?: "incomplete" | "invalid";
+};
 
-export function parseAnalyticsMessage(content: string): { markdown: string; analytics?: AnalyticsPayload } {
-  const match = blockStart.exec(content);
-  if (!match || match.index === undefined) return { markdown: content };
+const completeBlock = /^[ \t]{0,3}```([a-z0-9-]*)[ \t]*\r?\n([\s\S]*?)^[ \t]{0,3}```[ \t]*\r?$/gim;
+const incompleteSugiBlock = /^[ \t]{0,3}```sugi-analytics[ \t]*\r?$/im;
 
-  const jsonStart = match.index + match[0].length;
-  const remaining = content.slice(jsonStart);
-  const closingMatch = /^```[ \t]*\r?$/m.exec(remaining);
-  if (!closingMatch || closingMatch.index === undefined) {
-    return { markdown: content.slice(0, match.index).trimEnd() };
+function withoutBlock(content: string, start: number, length: number) {
+  return `${content.slice(0, start).trimEnd()}${content.slice(start + length)}`.trim();
+}
+
+function looksLikeAnalytics(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  return candidate.version === 1 || Array.isArray(candidate.kpis) || Array.isArray(candidate.charts);
+}
+
+export function parseAnalyticsMessage(content: string): ParsedAnalyticsMessage {
+  completeBlock.lastIndex = 0;
+  for (const match of content.matchAll(completeBlock)) {
+    const language = match[1].toLowerCase();
+    if (!["", "json", "sugi-analytics"].includes(language) || match.index === undefined) continue;
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(match[2].trim());
+    } catch {
+      if (language === "sugi-analytics") {
+        return { markdown: withoutBlock(content, match.index, match[0].length), analyticsIssue: "invalid" };
+      }
+      continue;
+    }
+    const parsed = analyticsPayloadSchema.safeParse(decoded);
+    const markdown = withoutBlock(content, match.index, match[0].length);
+    if (parsed.success) return { markdown, analytics: parsed.data };
+    if (language === "sugi-analytics" || looksLikeAnalytics(decoded)) return { markdown, analyticsIssue: "invalid" };
   }
 
-  const afterBlock = remaining.slice(closingMatch.index + closingMatch[0].length);
-  const markdown = `${content.slice(0, match.index).trimEnd()}${afterBlock}`.trim();
-  const rawJson = remaining.slice(0, closingMatch.index).trim();
-  try {
-    const parsed = analyticsPayloadSchema.safeParse(JSON.parse(rawJson));
-    return parsed.success ? { markdown, analytics: parsed.data } : { markdown };
-  } catch {
-    return { markdown };
-  }
+  const incomplete = incompleteSugiBlock.exec(content);
+  if (incomplete?.index !== undefined) return { markdown: content.slice(0, incomplete.index).trimEnd(), analyticsIssue: "incomplete" };
+  return { markdown: content };
 }

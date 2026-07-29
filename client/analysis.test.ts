@@ -33,9 +33,21 @@ describe("analytics message contract", () => {
     expect(parseAnalyticsMessage("**Shift complete.**")).toEqual({ markdown: "**Shift complete.**" });
   });
 
+  it("accepts a validated analytics payload from a generic JSON fence", () => {
+    const content = `Summary\n\n\`\`\`json\n${JSON.stringify(validPayload)}\n\`\`\``;
+    const parsed = parseAnalyticsMessage(content);
+    expect(parsed.markdown).toBe("Summary");
+    expect(parsed.analytics?.period?.start).toBe("2026-07-27");
+  });
+
+  it("does not consume an unrelated JSON code sample", () => {
+    const content = "Example:\n\n```json\n{\"enabled\":true}\n```";
+    expect(parseAnalyticsMessage(content)).toEqual({ markdown: content });
+  });
+
   it("hides an incomplete streamed block until it can be validated", () => {
     const parsed = parseAnalyticsMessage("Trend below.\n\n```sugi-analytics\n{\"version\":1");
-    expect(parsed).toEqual({ markdown: "Trend below." });
+    expect(parsed).toEqual({ markdown: "Trend below.", analyticsIssue: "incomplete" });
   });
 
   it("rejects unknown series keys without exposing raw JSON", () => {
@@ -47,12 +59,12 @@ describe("analytics message contract", () => {
       }],
     };
     const content = `Summary\n\n\`\`\`sugi-analytics\n${JSON.stringify(invalid)}\n\`\`\``;
-    expect(parseAnalyticsMessage(content)).toEqual({ markdown: "Summary" });
+    expect(parseAnalyticsMessage(content)).toEqual({ markdown: "Summary", analyticsIssue: "invalid" });
   });
 
   it("rejects executable or unsupported chart types", () => {
     const invalid = { ...validPayload, charts: [{ ...validPayload.charts[0], type: "javascript" }] };
     const content = `Summary\n\n\`\`\`sugi-analytics\n${JSON.stringify(invalid)}\n\`\`\``;
-    expect(parseAnalyticsMessage(content)).toEqual({ markdown: "Summary" });
+    expect(parseAnalyticsMessage(content)).toEqual({ markdown: "Summary", analyticsIssue: "invalid" });
   });
 });

@@ -90,7 +90,7 @@ Contract rules:
 - The fenced block must be the final item in the response, with no content after it.
 ````
 
-The browser validates the payload strictly. Unsupported chart types, extra fields, invalid dates, unknown series keys, oversized payloads, and malformed JSON are hidden and never executed. The Markdown answer remains visible as a fallback.
+The browser validates the payload strictly. It recognises the preferred `sugi-analytics` fence and also tolerates `json` or an unlabelled fence when—and only when—the contents validate as this analytics contract. Unsupported chart types, invalid dates, unknown series keys, oversized payloads, and malformed JSON are never executed. Unknown inert fields are ignored. The Markdown answer remains visible as a fallback.
 
 ## Recommended POC anomaly rules
 

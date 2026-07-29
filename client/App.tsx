@@ -124,6 +124,7 @@ const MessageView = memo(function MessageView({ message, onRetry }: { message: M
       <div className="message-author">Sugi Bobot <span>AI</span></div>
       {parsed.markdown ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{parsed.markdown}</ReactMarkdown> : !parsed.analytics && <span className="stream-caret" />}
       {message.status !== "streaming" && parsed.analytics && <AnalyticsPanel analysis={parsed.analytics} />}
+      {message.status !== "streaming" && parsed.analyticsIssue && <div className="analytics-unavailable">The written analysis is available, but its visual summary could not be displayed.</div>}
       {message.status !== "streaming" && <div className="message-actions">
         <button onClick={copy} aria-label="Copy response">{copied ? <Check size={14} /> : <Clipboard size={14} />} {copied ? "Copied" : "Copy"}</button>
         {onRetry && <button onClick={onRetry}><RefreshCcw size={14} /> Retry</button>}
