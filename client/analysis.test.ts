@@ -1,0 +1,58 @@
+import { describe, expect, it } from "vitest";
+
+import { parseAnalyticsMessage } from "./analysis";
+
+const validPayload = {
+  version: 1,
+  period: { label: "This week", start: "2026-07-27", end: "2026-07-29" },
+  kpis: [{ label: "Recorded rejects", value: 0, unit: "units", status: "positive" }],
+  charts: [{
+    type: "line",
+    title: "Plan vs actual",
+    yLabel: "Units",
+    series: [{ key: "plan", label: "Plan" }, { key: "actual", label: "Actual" }],
+    data: [
+      { label: "27 Jul · Day", values: { plan: 100, actual: 92 }, anomaly: true },
+      { label: "28 Jul · Day", values: { plan: 100, actual: 101 } },
+    ],
+  }],
+  anomalies: [{ severity: "warning", title: "Output below plan", detail: "The Day shift finished 8% below plan." }],
+  notes: ["Two current shifts are not closed."],
+};
+
+describe("analytics message contract", () => {
+  it("extracts a valid payload and preserves the consumer answer", () => {
+    const content = `No rejects were recorded this week.\n\n\`\`\`sugi-analytics\n${JSON.stringify(validPayload)}\n\`\`\``;
+    const parsed = parseAnalyticsMessage(content);
+    expect(parsed.markdown).toBe("No rejects were recorded this week.");
+    expect(parsed.analytics?.charts[0].data).toHaveLength(2);
+    expect(parsed.analytics?.kpis[0].status).toBe("positive");
+  });
+
+  it("leaves ordinary Markdown unchanged", () => {
+    expect(parseAnalyticsMessage("**Shift complete.**")).toEqual({ markdown: "**Shift complete.**" });
+  });
+
+  it("hides an incomplete streamed block until it can be validated", () => {
+    const parsed = parseAnalyticsMessage("Trend below.\n\n```sugi-analytics\n{\"version\":1");
+    expect(parsed).toEqual({ markdown: "Trend below." });
+  });
+
+  it("rejects unknown series keys without exposing raw JSON", () => {
+    const invalid = {
+      ...validPayload,
+      charts: [{
+        ...validPayload.charts[0],
+        data: [{ ...validPayload.charts[0].data[0], values: { plan: 100, actual: 92, secret: 12 } }],
+      }],
+    };
+    const content = `Summary\n\n\`\`\`sugi-analytics\n${JSON.stringify(invalid)}\n\`\`\``;
+    expect(parseAnalyticsMessage(content)).toEqual({ markdown: "Summary" });
+  });
+
+  it("rejects executable or unsupported chart types", () => {
+    const invalid = { ...validPayload, charts: [{ ...validPayload.charts[0], type: "javascript" }] };
+    const content = `Summary\n\n\`\`\`sugi-analytics\n${JSON.stringify(invalid)}\n\`\`\``;
+    expect(parseAnalyticsMessage(content)).toEqual({ markdown: "Summary" });
+  });
+});

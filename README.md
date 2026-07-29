@@ -9,10 +9,13 @@ Secure React chat frontend and Node gateway for Sugihara Grand Industries' produ
 - Named local accounts, forced first-password changes, administrator user management, and Argon2id password hashing.
 - Persistent, per-user PostgreSQL conversations and administrative audit records.
 - Langflow v2 background execution, plus an opt-in Langflow 1.10 live stream for token output and sanitized component/tool progress.
+- Validated KPI cards, line/bar charts, and anomaly callouts from an optional non-executable Langflow analytics payload.
 - A local Langflow simulator for frontend testing on a Windows PC.
 - Hardened Docker image, private data networks, loopback-only tunnel access, health checks, log rotation, backups, and GitHub Actions validation.
 
 The browser never receives the Langflow URL or API key. The application does not expose prompts, SQL, tool arguments, tool results, credentials, or raw database payloads in its progress display or normal logs.
+
+Visual analytics remain opt-in and backward compatible: ordinary Markdown answers render unchanged. To enable charts, add the contract in [`docs/langflow-analytics-output.md`](docs/langflow-analytics-output.md) to the deployed Agent Instructions. Invalid structured payloads are hidden and the Markdown answer remains available.
 
 ## Repository layout
 

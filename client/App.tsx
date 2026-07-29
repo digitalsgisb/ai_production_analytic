@@ -6,6 +6,8 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { AnalyticsPanel } from "./AnalyticsPanel";
+import { parseAnalyticsMessage } from "./analysis";
 import { api, setCsrf, streamRun, type AdminUser, type Conversation, type Message, type StreamEvent, type User } from "./api";
 
 const suggestions = [
@@ -113,13 +115,15 @@ function ProgressCard({ status, elapsed, trace }: { status: string; elapsed: num
 
 const MessageView = memo(function MessageView({ message, onRetry }: { message: Message; onRetry?: () => void }) {
   const [copied, setCopied] = useState(false);
-  const copy = async () => { await navigator.clipboard.writeText(message.content); setCopied(true); setTimeout(() => setCopied(false), 1200); };
+  const parsed = useMemo(() => parseAnalyticsMessage(message.content), [message.content]);
+  const copy = async () => { await navigator.clipboard.writeText(parsed.markdown); setCopied(true); setTimeout(() => setCopied(false), 1200); };
   if (message.role === "user") return <article className="message user-message"><div>{message.content}</div></article>;
   return <article className={`message assistant-message ${message.status}`}>
     <div className="assistant-avatar"><RobotMark /></div>
     <div className="message-body">
       <div className="message-author">Sugi Bobot <span>AI</span></div>
-      {message.content ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown> : <span className="stream-caret" />}
+      {parsed.markdown ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{parsed.markdown}</ReactMarkdown> : !parsed.analytics && <span className="stream-caret" />}
+      {message.status !== "streaming" && parsed.analytics && <AnalyticsPanel analysis={parsed.analytics} />}
       {message.status !== "streaming" && <div className="message-actions">
         <button onClick={copy} aria-label="Copy response">{copied ? <Check size={14} /> : <Clipboard size={14} />} {copied ? "Copied" : "Copy"}</button>
         {onRetry && <button onClick={onRetry}><RefreshCcw size={14} /> Retry</button>}
