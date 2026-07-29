@@ -9,6 +9,7 @@ import remarkGfm from "remark-gfm";
 import { AnalyticsPanel } from "./AnalyticsPanel";
 import { parseAnalyticsMessage } from "./analysis";
 import { api, setCsrf, streamRun, type AdminUser, type Conversation, type Message, type StreamEvent, type User } from "./api";
+import { isNearScrollEnd } from "./scroll";
 
 const suggestions = [
   "Why was ABB2 output below target yesterday?",
@@ -179,8 +180,10 @@ function ChatApp({ user, onLogout, theme, onToggleTheme }: { user: User; onLogou
   const [mobileSidebar, setMobileSidebar] = useState(false);
   const [admin, setAdmin] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const streamController = useRef<AbortController | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLElement>(null);
+  const followOutputRef = useRef(true);
   const scrollTimer = useRef<number | null>(null);
   const lastMessageLength = messages[messages.length - 1]?.content.length ?? 0;
 
@@ -189,12 +192,15 @@ function ChatApp({ user, onLogout, theme, onToggleTheme }: { user: User; onLogou
   }, []);
   useEffect(() => { void loadConversations(); }, [loadConversations]);
   useEffect(() => {
+    if (!followOutputRef.current) { setShowJumpToLatest(true); return; }
     if (scrollTimer.current !== null) return;
     scrollTimer.current = window.setTimeout(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
+      const scroll = chatScrollRef.current;
+      if (scroll) scroll.scrollTop = scroll.scrollHeight;
+      setShowJumpToLatest(false);
       scrollTimer.current = null;
     }, runningId ? 80 : 0);
-  }, [lastMessageLength, messages.length, runningId]);
+  }, [lastMessageLength, messages.length, runningId, selectedId]);
   useEffect(() => () => {
     if (scrollTimer.current !== null) window.clearTimeout(scrollTimer.current);
   }, []);
@@ -242,7 +248,7 @@ function ChatApp({ user, onLogout, theme, onToggleTheme }: { user: User; onLogou
   }, [loadConversations]);
 
   const selectConversation = useCallback(async (id: string) => {
-    streamController.current?.abort(); setMobileSidebar(false); setRunningId(null); setTrace([]);
+    streamController.current?.abort(); setMobileSidebar(false); setRunningId(null); setTrace([]); followOutputRef.current = true; setShowJumpToLatest(false);
     const result = await api<{ messages: Message[] }>(`/api/conversations/${id}/messages`); setSelectedId(id); setMessages(result.messages);
     const active = result.messages.find((m) => m.status === "streaming" && m.runId);
     if (active?.runId) void followRun(active.runId, active.id);
@@ -250,6 +256,7 @@ function ChatApp({ user, onLogout, theme, onToggleTheme }: { user: User; onLogou
 
   async function submit(content = draft) {
     const text = content.trim(); if (!text || runningId) return;
+    followOutputRef.current = true; setShowJumpToLatest(false);
     let conversationId = selectedId;
     if (!conversationId) {
       const result = await api<{ conversation: Conversation }>("/api/conversations", { method: "POST", body: JSON.stringify({}) });
@@ -269,6 +276,18 @@ function ChatApp({ user, onLogout, theme, onToggleTheme }: { user: User; onLogou
   async function renameConversation(id: string, title: string) { if (!title.trim()) return; await api(`/api/conversations/${id}`, { method: "PATCH", body: JSON.stringify({ title }) }); setEditingId(null); await loadConversations(); }
   async function logout() { await api("/api/auth/logout", { method: "POST", body: JSON.stringify({}) }); onLogout(); }
   function keyDown(event: KeyboardEvent<HTMLTextAreaElement>) { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void submit(); } }
+  function handleConversationScroll() {
+    const scroll = chatScrollRef.current;
+    if (!scroll) return;
+    const nearLatest = isNearScrollEnd(scroll);
+    followOutputRef.current = nearLatest;
+    setShowJumpToLatest(!nearLatest);
+  }
+  function jumpToLatest() {
+    const scroll = chatScrollRef.current;
+    followOutputRef.current = true; setShowJumpToLatest(false);
+    if (scroll) scroll.scrollTop = scroll.scrollHeight;
+  }
   const lastUserText = useMemo(() => [...messages].reverse().find((m) => m.role === "user")?.content, [messages]);
 
   return <div className={`app-shell ${sidebar ? "sidebar-open" : "sidebar-closed"}`}>
@@ -279,7 +298,7 @@ function ChatApp({ user, onLogout, theme, onToggleTheme }: { user: User; onLogou
         <img src="/brand/sugihara-wordmark.png" alt="Sugihara Grand Industries" />
         <button className="sidebar-collapse" onClick={() => { setSidebar(false); setMobileSidebar(false); }} aria-label="Collapse conversation history" title="Collapse history"><PanelLeftClose size={18} /></button>
       </div>
-      <button className="new-chat" onClick={() => { setSelectedId(null); setMessages([]); setMobileSidebar(false); }}><MessageSquarePlus size={17} /> New analysis</button>
+      <button className="new-chat" onClick={() => { followOutputRef.current = true; setShowJumpToLatest(false); setSelectedId(null); setMessages([]); setMobileSidebar(false); }}><MessageSquarePlus size={17} /> New analysis</button>
       <div className="history-label">Recent conversations</div>
       <nav className="history-list">{conversations.map((item) => <div className={`history-item ${selectedId === item.id ? "selected" : ""}`} key={item.id}>
         {editingId === item.id ? <input autoFocus defaultValue={item.title} onBlur={(e) => void renameConversation(item.id, e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void renameConversation(item.id, e.currentTarget.value); }} /> : <button className="history-title" onClick={() => void selectConversation(item.id)}>{item.title}</button>}
@@ -297,15 +316,16 @@ function ChatApp({ user, onLogout, theme, onToggleTheme }: { user: User; onLogou
         <div><button className="icon-button mobile-menu" onClick={() => setMobileSidebar(true)} aria-label="Open conversation history"><Menu /></button>{!sidebar && <button className="icon-button sidebar-reopen" onClick={() => setSidebar(true)} aria-label="Open conversation history" title="Open history"><Menu /></button>}<RobotMark /><div className="topbar-title"><strong>Sugi Bobot</strong><span><i /> Secure connection</span></div></div>
         <ThemeToggle theme={theme} onToggle={onToggleTheme} compact />
       </header>
-      <section className={`chat-scroll ${messages.length ? "has-messages" : ""}`}>
+      <section ref={chatScrollRef} onScroll={handleConversationScroll} className={`chat-scroll ${messages.length ? "has-messages" : ""}`}>
         <div className="conversation-stage" key={selectedId ?? "new-conversation"}>
           {!messages.length ? <div className="empty-state"><RobotMark size="large" idle /><span className="eyebrow">Sugi Bobot · Production intelligence</span><h1>Good decisions start with<br /><em>trusted production data.</em></h1><p>Ask about output, downtime, rejects, OEE, shifts, and the recorded reasons behind production losses.</p><div className="suggestion-grid">{suggestions.map((s) => <button key={s} onClick={() => void submit(s)}>{s}<Send size={14} /></button>)}</div><small className="trust-note"><Shield size={13} /> Answers are produced through approved read-only tools</small></div>
           : <div className="message-list">{messages.map((message, index) => <div className="message-entry" key={message.id}>
             <MessageView message={message} onRetry={message.role === "assistant" && message.status === "error" && lastUserText ? () => void submit(lastUserText) : undefined} />
             {message.role === "assistant" && message.status === "streaming" && index === messages.length - 1 && <ProgressCard status={status} elapsed={elapsed} trace={trace} />}
-          </div>)}<div ref={bottomRef} /></div>}
+          </div>)}</div>}
         </div>
       </section>
+      {showJumpToLatest && messages.length > 0 && <button className="jump-to-latest" onClick={jumpToLatest}><ChevronDown size={15} /> Jump to latest</button>}
       <div className="composer-wrap"><div className={`composer ${runningId ? "running" : ""}`}>
         <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={keyDown} placeholder="Ask about production performance…" rows={1} disabled={Boolean(runningId)} aria-label="Message" />
         {runningId ? <button className="send-button stop" onClick={() => void stop()} aria-label="Stop response"><Square size={15} fill="currentColor" /></button> : <button className="send-button" onClick={() => void submit()} disabled={!draft.trim()} aria-label="Send message"><Send size={17} /></button>}

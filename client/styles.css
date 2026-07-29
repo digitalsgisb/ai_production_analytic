@@ -142,6 +142,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 
 .chat-scroll { min-height: 0; overflow-y: auto; scrollbar-color: #3f3336 transparent; }
 .chat-scroll:not(.has-messages) { overflow: hidden; }
+.jump-to-latest { position: absolute; z-index: 6; left: 50%; bottom: 100px; transform: translateX(-50%); min-height: 36px; display: flex; align-items: center; gap: 6px; padding: 7px 12px; color: #e0d8da; border: 1px solid var(--line-strong); border-radius: 999px; background: rgba(29,24,26,.94); box-shadow: 0 10px 30px rgba(0,0,0,.28); backdrop-filter: blur(14px); cursor: pointer; font-size: 12px; font-weight: 650; animation: message-enter .2s ease-out both; }
+.jump-to-latest:hover { color: white; border-color: rgba(193,73,85,.38); background: rgba(47,31,35,.96); }
 .conversation-stage { height: 100%; min-height: 100%; animation: surface-enter .3s cubic-bezier(.2,.8,.2,1) both; }
 .empty-state { height: 100%; min-height: 0; width: min(850px, calc(100% - 40px)); margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: clamp(20px, 4vh, 42px) 0 clamp(16px, 3vh, 30px); }
 .empty-state .robot-mark { margin-bottom: clamp(12px, 2vh, 20px); }
@@ -337,6 +339,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 :root[data-theme="light"] .icon-button:hover { color: #841822; background: rgba(161,40,53,.07); }
 :root[data-theme="light"] .topbar-title span { color: #81777a; }
 :root[data-theme="light"] .chat-scroll { scrollbar-color: #c8bcbf transparent; }
+:root[data-theme="light"] .jump-to-latest { color: #6c343e; background: rgba(255,252,250,.94); box-shadow: 0 10px 30px rgba(82,55,61,.12); }
 :root[data-theme="light"] .eyebrow { color: #a12835; }
 :root[data-theme="light"] .suggestion-grid button { color: #4f4749; background: rgba(255,255,255,.55); box-shadow: 0 8px 26px rgba(78,51,57,.035); }
 :root[data-theme="light"] .suggestion-grid button:hover { background: rgba(255,255,255,.94); border-color: rgba(161,40,53,.25); }
