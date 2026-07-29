@@ -71,6 +71,7 @@ export type ParsedAnalyticsMessage = {
 
 const completeBlock = /^[ \t]{0,3}```([a-z0-9-]*)[ \t]*\r?\n([\s\S]*?)^[ \t]{0,3}```[ \t]*\r?$/gim;
 const incompleteSugiBlock = /^[ \t]{0,3}```sugi-analytics[ \t]*\r?$/im;
+const trailingAnalyticsStart = /(?:^|\r?\n)[ \t]*\{[ \t]*\r?\n[ \t]*"version"[ \t]*:[ \t]*1[ \t]*,/g;
 
 function withoutBlock(content: string, start: number, length: number) {
   return `${content.slice(0, start).trimEnd()}${content.slice(start + length)}`.trim();
@@ -100,6 +101,24 @@ export function parseAnalyticsMessage(content: string): ParsedAnalyticsMessage {
     const markdown = withoutBlock(content, match.index, match[0].length);
     if (parsed.success) return { markdown, analytics: parsed.data };
     if (language === "sugi-analytics" || looksLikeAnalytics(decoded)) return { markdown, analyticsIssue: "invalid" };
+  }
+
+  trailingAnalyticsStart.lastIndex = 0;
+  const trailingMatches = [...content.matchAll(trailingAnalyticsStart)];
+  const trailingMatch = trailingMatches[trailingMatches.length - 1];
+  if (trailingMatch?.index !== undefined) {
+    const braceOffset = trailingMatch[0].indexOf("{");
+    const start = trailingMatch.index + braceOffset;
+    const rawJson = content.slice(start).trim();
+    const markdown = content.slice(0, start).trimEnd();
+    try {
+      const decoded = JSON.parse(rawJson) as unknown;
+      const parsed = analyticsPayloadSchema.safeParse(decoded);
+      if (parsed.success) return { markdown, analytics: parsed.data };
+      if (looksLikeAnalytics(decoded)) return { markdown, analyticsIssue: "invalid" };
+    } catch {
+      return { markdown, analyticsIssue: "incomplete" };
+    }
   }
 
   const incomplete = incompleteSugiBlock.exec(content);

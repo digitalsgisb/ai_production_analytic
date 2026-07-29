@@ -40,6 +40,18 @@ describe("analytics message contract", () => {
     expect(parsed.analytics?.period?.start).toBe("2026-07-27");
   });
 
+  it("accepts a validated bare analytics object appended to the answer", () => {
+    const content = `Weekly summary\n\n${JSON.stringify(validPayload, null, 2)}`;
+    const parsed = parseAnalyticsMessage(content);
+    expect(parsed.markdown).toBe("Weekly summary");
+    expect(parsed.analytics?.charts[0].title).toBe("Plan vs actual");
+  });
+
+  it("hides an incomplete trailing analytics object while it streams", () => {
+    const content = "Weekly summary\n\n{\n  \"version\": 1,\n  \"period\":";
+    expect(parseAnalyticsMessage(content)).toEqual({ markdown: "Weekly summary", analyticsIssue: "incomplete" });
+  });
+
   it("does not consume an unrelated JSON code sample", () => {
     const content = "Example:\n\n```json\n{\"enabled\":true}\n```";
     expect(parseAnalyticsMessage(content)).toEqual({ markdown: content });
