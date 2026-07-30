@@ -251,6 +251,35 @@ docker compose ps
 
 Database migrations run automatically with an advisory lock before the server accepts traffic.
 
+## Production analytics v2 rollout
+
+The repository tracks the current Langflow agent instruction at
+`docs/ai-instructions/CURRENT.md`. Copy that complete file into the deployed
+Langflow Agent Instructions whenever the version changes. Previous instructions
+remain under `docs/ai-instructions/` for audit history.
+
+The versioned `analytics_v2` normalization package is stored in
+`production-data-platform/`. It intentionally leaves the legacy `analytics`
+schema untouched during rollout. After pulling a release on ATOM, back up the
+production database and apply the idempotent migration:
+
+```bash
+cd /srv/apps/sugi-prod-analytic/production-data-platform
+
+docker exec production-postgres \
+  pg_dump -U production_admin -d production_analytics -Fc \
+  > "production_analytics-before-v2-$(date +%Y%m%d-%H%M%S).dump"
+
+chmod 750 scripts/*.sh
+./scripts/migrate-normalized-analytics.sh
+
+ANALYTICS_DB_USER=YOUR_EXISTING_LANGFLOW_DB_ROLE \
+  ./scripts/grant-analytics-reader.sh
+```
+
+Review `analytics_v2.data_quality_issues` and confirm the verification output
+before switching Langflow from the legacy instruction to `CURRENT.md`.
+
 ## Backups
 
 Create an assistant-schema backup:
