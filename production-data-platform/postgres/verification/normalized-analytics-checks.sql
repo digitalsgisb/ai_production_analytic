@@ -46,10 +46,28 @@ SELECT
   reported_shift_output,
   output_reconciliation_variance,
   hourly_record_count,
+  positive_plan_hour_count,
+  median_hourly_plan,
+  max_hourly_plan,
+  plan_outlier_count,
   record_status
 FROM analytics_v2.shift_summary
 ORDER BY production_date DESC, line_code, shift_id
 LIMIT 100;
+
+SELECT
+  production_date,
+  line_code,
+  shift_id,
+  plan_quantity,
+  actual_quantity,
+  median_hourly_plan,
+  max_hourly_plan,
+  plan_outlier_count,
+  record_status
+FROM analytics_v2.shift_summary
+WHERE plan_outlier_count > 0
+ORDER BY production_date DESC, line_code, shift_id;
 
 WITH hourly AS (
   SELECT

@@ -25,6 +25,9 @@ The AI must use the typed `analytics_v2` schema for routine analysis. The raw
    result and the SQL groups each component first.
 5. Final daily or shift analysis requires `record_status = 'READY'`. If the
    status is not ready, state the quality problem instead of estimating values.
+6. `PLAN_OUTLIER` identifies a material hourly-plan spike relative to the
+   shift's positive-plan median. Plan totals and achievement for that scope are
+   review-only until the source event is corrected.
 
 ## Calculation rules
 

@@ -936,6 +936,48 @@ adjustments AS (
   FROM analytics_v2.count_adjustments
   GROUP BY line_code, shift_id, production_date
 ),
+plan_baseline AS (
+  SELECT
+    production_date,
+    line_code,
+    shift_id,
+    COUNT(*) FILTER (WHERE plan_quantity > 0) AS positive_plan_hour_count,
+    PERCENTILE_CONT(0.5) WITHIN GROUP (
+      ORDER BY plan_quantity::DOUBLE PRECISION
+    ) FILTER (WHERE plan_quantity > 0) AS median_hourly_plan,
+    MAX(plan_quantity) AS max_hourly_plan
+  FROM analytics_v2.hourly_output
+  WHERE record_status = 'READY'
+  GROUP BY production_date, line_code, shift_id
+),
+plan_quality AS (
+  SELECT
+    baseline.production_date,
+    baseline.line_code,
+    baseline.shift_id,
+    baseline.positive_plan_hour_count,
+    baseline.median_hourly_plan,
+    baseline.max_hourly_plan,
+    COUNT(*) FILTER (
+      WHERE baseline.positive_plan_hour_count >= 4
+        AND baseline.median_hourly_plan > 0
+        AND hourly.plan_quantity > baseline.median_hourly_plan * 3
+        AND hourly.plan_quantity - baseline.median_hourly_plan >= 10
+    ) AS plan_outlier_count
+  FROM plan_baseline AS baseline
+  JOIN analytics_v2.hourly_output AS hourly
+    ON hourly.production_date = baseline.production_date
+   AND hourly.line_code = baseline.line_code
+   AND hourly.shift_id = baseline.shift_id
+   AND hourly.record_status = 'READY'
+  GROUP BY
+    baseline.production_date,
+    baseline.line_code,
+    baseline.shift_id,
+    baseline.positive_plan_hour_count,
+    baseline.median_hourly_plan,
+    baseline.max_hourly_plan
+),
 normalization_failures AS (
   SELECT
     line_code,
@@ -1005,6 +1047,8 @@ SELECT
   CASE
     WHEN COALESCE(normalization_failures.normalization_error_count, 0) > 0
       THEN 'NORMALIZATION_ERROR'
+    WHEN COALESCE(plan_quality.plan_outlier_count, 0) > 0
+      THEN 'PLAN_OUTLIER'
     WHEN COALESCE(hourly.hourly_record_count, 0) = 0 THEN 'NO_HOURLY_DATA'
     WHEN COALESCE(hourly.incomplete_hourly_records, 0)
        + COALESCE(rejects.incomplete_reject_records, 0)
@@ -1018,7 +1062,11 @@ SELECT
     ELSE 'READY'
   END AS record_status,
   hourly.first_hourly_event_at,
-  hourly.last_hourly_event_at
+  hourly.last_hourly_event_at,
+  plan_quality.positive_plan_hour_count,
+  ROUND(plan_quality.median_hourly_plan::NUMERIC, 2) AS median_hourly_plan,
+  plan_quality.max_hourly_plan,
+  COALESCE(plan_quality.plan_outlier_count, 0) AS plan_outlier_count
 FROM keys
 LEFT JOIN analytics_v2.production_shifts AS shifts
   ON shifts.line_code = keys.line_code
@@ -1039,6 +1087,10 @@ LEFT JOIN adjustments
   ON adjustments.line_code = keys.line_code
  AND adjustments.shift_id = keys.shift_id
  AND adjustments.production_date = keys.production_date
+LEFT JOIN plan_quality
+  ON plan_quality.line_code = keys.line_code
+ AND plan_quality.shift_id = keys.shift_id
+ AND plan_quality.production_date = keys.production_date
 LEFT JOIN normalization_failures
   ON normalization_failures.line_code = keys.line_code
  AND normalization_failures.shift_id = keys.shift_id;
@@ -1137,7 +1189,11 @@ UNION ALL
 SELECT
   'SHIFT_' || summary.record_status AS issue_code,
   CASE
-    WHEN summary.record_status IN ('NORMALIZATION_ERROR', 'RECONCILIATION_FAILED')
+    WHEN summary.record_status IN (
+      'NORMALIZATION_ERROR',
+      'RECONCILIATION_FAILED',
+      'PLAN_OUTLIER'
+    )
       THEN 'critical'
     ELSE 'warning'
   END AS severity,
@@ -1151,6 +1207,7 @@ SELECT
     WHEN 'OPEN_SHIFT' THEN 'The shift has not ended, so final totals are unavailable.'
     WHEN 'RECONCILIATION_FAILED' THEN 'Hourly actual does not match reported shift output.'
     WHEN 'NORMALIZATION_ERROR' THEN 'At least one source event failed normalization.'
+    WHEN 'PLAN_OUTLIER' THEN 'One or more hourly plan values exceed three times the shift median and require review.'
     ELSE 'One or more required shift values are incomplete.'
   END AS detail
 FROM analytics_v2.shift_summary AS summary
