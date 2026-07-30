@@ -206,6 +206,11 @@ class SecureAnalyticsSQL(ComponentWithCache):
                     "status": "success",
                     "row_count": len(rows),
                     "rows": rows,
+                    "next_action": (
+                        "Report no matching records for the exact filters and stop."
+                        if not rows
+                        else "Answer from these rows and stop unless a distinct detail dataset is explicitly required."
+                    ),
                 }
             )
         except SQLAlchemyError as exc:
@@ -217,4 +222,3 @@ class SecureAnalyticsSQL(ComponentWithCache):
                     "message": "The approved analytics query could not be completed.",
                 }
             )
-

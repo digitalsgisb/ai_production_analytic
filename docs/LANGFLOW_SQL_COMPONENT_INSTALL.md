@@ -76,3 +76,24 @@ contain exactly one row with plan `169`, actual `169`, good `169`, rejects `0`,
 downtime `0`, achievement `100.00`, shift count `2`, and hourly record count
 `23`. No answer text should be generated before this JSON result is returned.
 
+## GraphRecursionError with limit 17
+
+Do not increase the recursion limit. With Agent maximum iterations set to 6,
+Langflow derives a graph recursion limit of `6 * 2 + 5 = 17`. Reaching 17 means
+the model repeatedly called tools instead of accepting a success, no-data, or
+error result as a stop condition.
+
+Pull the latest `CURRENT.md`, replace the complete Agent instructions, and start
+a new Playground session. The current instructions contain deterministic routes
+and status rules, including `VALID` for reject, downtime, and adjustment events
+and `READY` for completed summary views.
+
+For `Summarise this week's reject patterns`, the correct trace contains exactly:
+
+1. One current-date tool call.
+2. One SQL call to `analytics_v2.reject_events` using `record_status = 'VALID'`.
+3. One final answer.
+
+If the trace contains repeated SQL calls, capture their JSON tool results. The
+first repeated `error_code` or zero-row result identifies the route the Agent is
+failing to accept.
