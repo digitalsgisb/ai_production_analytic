@@ -79,4 +79,54 @@ describe("analytics message contract", () => {
     const content = `Summary\n\n\`\`\`sugi-analytics\n${JSON.stringify(invalid)}\n\`\`\``;
     expect(parseAnalyticsMessage(content)).toEqual({ markdown: "Summary", analyticsIssue: "invalid" });
   });
+
+  it("accepts hour-slot versus production output for a single day", () => {
+    const hourly = {
+      ...validPayload,
+      period: { label: "ABB4 - 28 Jul 2026", start: "2026-07-28", end: "2026-07-28" },
+      charts: [{
+        type: "line",
+        title: "Hourly plan vs total product",
+        yLabel: "Units",
+        series: [{ key: "plan", label: "Plan" }, { key: "actual", label: "Total product" }],
+        data: [
+          { label: "07:00-08:00", values: { plan: 9, actual: 10 } },
+          { label: "08:00-09:00", values: { plan: 11, actual: 15 } },
+        ],
+      }],
+    };
+    const content = `Summary\n\n\`\`\`sugi-analytics\n${JSON.stringify(hourly)}\n\`\`\``;
+    expect(parseAnalyticsMessage(content).analytics?.charts[0].data).toHaveLength(2);
+  });
+
+  it("rejects shift and row counts as chart series", () => {
+    const metadataChart = {
+      ...validPayload,
+      charts: [{
+        type: "bar",
+        title: "Shift and hourly records",
+        yLabel: "Records",
+        series: [{ key: "shifts", label: "Shifts" }, { key: "hourly_records", label: "Hourly records" }],
+        data: [{ label: "28 Jul 2026 - ABB4", values: { shifts: 2, hourly_records: 23 } }],
+      }],
+    };
+    const content = `Summary\n\n\`\`\`sugi-analytics\n${JSON.stringify(metadataChart)}\n\`\`\``;
+    expect(parseAnalyticsMessage(content)).toEqual({ markdown: "Summary", analyticsIssue: "invalid" });
+  });
+
+  it("rejects a non-hourly primary chart for one production day", () => {
+    const dailyPoint = {
+      ...validPayload,
+      period: { label: "ABB4 - 28 Jul 2026", start: "2026-07-28", end: "2026-07-28" },
+      charts: [{
+        type: "bar",
+        title: "Daily output",
+        yLabel: "Units",
+        series: [{ key: "actual", label: "Total product" }],
+        data: [{ label: "28 Jul 2026 - ABB4", values: { actual: 169 } }],
+      }],
+    };
+    const content = `Summary\n\n\`\`\`sugi-analytics\n${JSON.stringify(dailyPoint)}\n\`\`\``;
+    expect(parseAnalyticsMessage(content)).toEqual({ markdown: "Summary", analyticsIssue: "invalid" });
+  });
 });

@@ -20,6 +20,10 @@ const chartPointSchema = z.object({
   anomaly: z.boolean().optional(),
 });
 
+const recordCountMetric = /^(?:shift_count|ready_shift_count|hourly_record_count|source_event_count|record_count|shifts?|hourly_records?|records?)$/i;
+const hourlyOutputMetric = /^(?:actual|actual_quantity|total_product|total_output|output)$/i;
+const hourSlotLabel = /^\s*\d{1,2}(?::|\.)\d{2}\s*[-–—]\s*\d{1,2}(?::|\.)\d{2}\s*$/;
+
 const chartSchema = z.object({
   type: z.enum(["line", "bar"]),
   title: z.string().min(1).max(100),
@@ -32,6 +36,16 @@ const chartSchema = z.object({
   if (keys.size !== chart.series.length) {
     context.addIssue({ code: "custom", message: "Chart series keys must be unique" });
   }
+  chart.series.forEach((series, seriesIndex) => {
+    const normalizedLabel = series.label.trim().toLowerCase().replace(/[ -]+/g, "_");
+    if (recordCountMetric.test(series.key) || recordCountMetric.test(normalizedLabel)) {
+      context.addIssue({
+        code: "custom",
+        path: ["series", seriesIndex],
+        message: "Database record counts are not production chart metrics",
+      });
+    }
+  });
   chart.data.forEach((point, pointIndex) => {
     Object.keys(point.values).forEach((key) => {
       if (!keys.has(key)) {
@@ -58,6 +72,31 @@ export const analyticsPayloadSchema = z.object({
   charts: z.array(chartSchema).max(3).default([]),
   anomalies: z.array(anomalySchema).max(8).default([]),
   notes: z.array(z.string().min(1).max(240)).max(6).default([]),
+}).superRefine((payload, context) => {
+  if (!payload.period || payload.period.start !== payload.period.end || payload.charts.length === 0) return;
+
+  const primaryChart = payload.charts[0];
+  const hasHourlyOutput = primaryChart.series.some((series) => {
+    const normalizedLabel = series.label.trim().toLowerCase().replace(/[ -]+/g, "_");
+    return hourlyOutputMetric.test(series.key) || hourlyOutputMetric.test(normalizedLabel);
+  });
+  if (!hasHourlyOutput) {
+    context.addIssue({
+      code: "custom",
+      path: ["charts", 0, "series"],
+      message: "A single-day primary chart must include actual hourly output",
+    });
+  }
+
+  primaryChart.data.forEach((point, pointIndex) => {
+    if (!hourSlotLabel.test(point.label)) {
+      context.addIssue({
+        code: "custom",
+        path: ["charts", 0, "data", pointIndex, "label"],
+        message: "A single-day primary chart must use hour-slot labels",
+      });
+    }
+  });
 });
 
 export type AnalyticsPayload = z.infer<typeof analyticsPayloadSchema>;
