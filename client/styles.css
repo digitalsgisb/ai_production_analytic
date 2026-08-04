@@ -174,9 +174,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .message-body code { font-family: ui-monospace, monospace; background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 5px; padding: 2px 5px; }
 .message-body pre { overflow-x: auto; background: #0b090a; border: 1px solid var(--line); border-radius: 12px; padding: 15px; }
 .message-body pre code { padding: 0; background: none; border: 0; }
-.message-body table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; }
+.message-body table { display: block; width: 100%; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin: 15px 0; font-size: 13px; white-space: nowrap; scrollbar-color: #514247 transparent; }
 .message-body th, .message-body td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; }
 .message-body th { color: white; background: rgba(255,255,255,.04); }
+.message-body tbody tr:nth-child(even) { background: rgba(255,255,255,.018); }
 .message-body a { color: #e26772; }
 .stream-caret { display: inline-block; width: 7px; height: 17px; border-radius: 2px; background: #cc3f4b; animation: blink .8s infinite; }
 @keyframes blink { 50% { opacity: .25; } }
